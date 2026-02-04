@@ -1,0 +1,328 @@
+@page "/mappings"
+@using NineYi.Ai.CodeReview.Web.Models
+@using NineYi.Ai.CodeReview.Web.Services
+@inject IApiClient Api
+@rendermode InteractiveServer
+
+<PageTitle>Rule Mappings - Code Review</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">
+        <i class="bi bi-diagram-3 me-2"></i>Repository - Rule 對應設定
+    </h4>
+</div>
+
+@if (isLoading)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (repositories.Count == 0)
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>
+        尚未設定任何 Repository，請先前往 <a href="/repositories">Repository 管理</a> 新增。
+    </div>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">選擇 Repository</h6>
+                </div>
+                <div class="list-group list-group-flush" style="max-height: 500px; overflow-y: auto;">
+                    @foreach (var repo in repositories)
+                    {
+                        <button type="button"
+                                class="list-group-item list-group-item-action @(selectedRepository?.Id == repo.Id ? "active" : "")"
+                                @onclick="() => SelectRepository(repo)">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>@repo.Name</strong>
+                                    <br />
+                                    <small class="@(selectedRepository?.Id == repo.Id ? "" : "text-muted")">@repo.FullName</small>
+                                </div>
+                                <span class="badge @GetPlatformBadgeClass(repo.Platform)">
+                                    @EnumHelpers.GetPlatformName(repo.Platform)
+                                </span>
+                            </div>
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            @if (selectedRepository == null)
+            {
+                <div class="alert alert-secondary">
+                    <i class="bi bi-arrow-left me-2"></i>
+                    請從左側選擇一個 Repository
+                </div>
+            }
+            else
+            {
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-folder me-2"></i>
+                            @selectedRepository.Name 的 Rules
+                        </h6>
+                        <button class="btn btn-sm btn-primary" @onclick="ShowAddRuleModal">
+                            <i class="bi bi-plus-circle me-1"></i>新增 Rule
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        @if (mappedRules.Count == 0)
+                        {
+                            <p class="text-muted text-center py-4">
+                                尚未設定任何 Rule，請點擊「新增 Rule」進行設定。
+                            </p>
+                        }
+                        else
+                        {
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Rule 名稱</th>
+                                        <th>類型</th>
+                                        <th>優先順序</th>
+                                        <th>檔案模式</th>
+                                        <th style="width: 80px;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var rule in mappedRules)
+                                    {
+                                        <tr>
+                                            <td><strong>@rule.Name</strong></td>
+                                            <td>
+                                                <span class="badge @GetTypeBadgeClass(rule.Type)">
+                                                    @EnumHelpers.GetRuleTypeName(rule.Type)
+                                                </span>
+                                            </td>
+                                            <td>@rule.Priority</td>
+                                            <td><code>@(rule.FilePatterns ?? "*")</code></td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveRule(rule)">
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@if (showAddModal)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">新增 Rule 到 @selectedRepository?.Name</h5>
+                    <button type="button" class="btn-close" @onclick="CloseAddModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">選擇 Rule *</label>
+                        <select class="form-select" @bind="selectedRuleId">
+                            <option value="">-- 請選擇 --</option>
+                            @foreach (var rule in availableRules)
+                            {
+                                <option value="@rule.Id">@rule.Name (@EnumHelpers.GetRuleTypeName(rule.Type))</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">優先順序覆寫</label>
+                        <input type="number" class="form-control" @bind="mappingPriorityOverride" placeholder="留空使用 Rule 預設值" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">檔案模式覆寫</label>
+                        <input type="text" class="form-control" @bind="mappingFilePatternsOverride" placeholder="留空使用 Rule 預設值" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseAddModal">取消</button>
+                    <button type="button" class="btn btn-primary" @onclick="AddRule" disabled="@(string.IsNullOrEmpty(selectedRuleId) || isSaving)">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        新增
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div class="toast show bg-danger text-white">
+            <div class="toast-body">
+                <i class="bi bi-exclamation-circle me-2"></i>@errorMessage
+                <button type="button" class="btn-close btn-close-white ms-2" @onclick="() => errorMessage = null"></button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<RepositoryDto> repositories = new();
+    private List<RuleDto> allRules = new();
+    private List<RuleDto> mappedRules = new();
+    private List<RuleDto> availableRules = new();
+    private RepositoryDto? selectedRepository;
+    private bool isLoading = true;
+    private bool showAddModal;
+    private bool isSaving;
+    private string? errorMessage;
+    private string? selectedRuleId;
+    private int? mappingPriorityOverride;
+    private string? mappingFilePatternsOverride;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        try
+        {
+            var reposTask = Api.GetRepositoriesAsync();
+            var rulesTask = Api.GetRulesAsync();
+            await Task.WhenAll(reposTask, rulesTask);
+
+            repositories = await reposTask;
+            allRules = await rulesTask;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"載入失敗: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task SelectRepository(RepositoryDto repo)
+    {
+        selectedRepository = repo;
+        await LoadMappedRules();
+    }
+
+    private async Task LoadMappedRules()
+    {
+        if (selectedRepository == null) return;
+
+        try
+        {
+            mappedRules = await Api.GetRulesByRepositoryAsync(selectedRepository.Id);
+            UpdateAvailableRules();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"載入失敗: {ex.Message}";
+        }
+    }
+
+    private void UpdateAvailableRules()
+    {
+        var mappedIds = mappedRules.Select(r => r.Id).ToHashSet();
+        availableRules = allRules.Where(r => !mappedIds.Contains(r.Id) && r.IsActive).ToList();
+    }
+
+    private void ShowAddRuleModal()
+    {
+        selectedRuleId = null;
+        mappingPriorityOverride = null;
+        mappingFilePatternsOverride = null;
+        showAddModal = true;
+    }
+
+    private void CloseAddModal()
+    {
+        showAddModal = false;
+    }
+
+    private async Task AddRule()
+    {
+        if (selectedRepository == null || string.IsNullOrEmpty(selectedRuleId)) return;
+
+        isSaving = true;
+        try
+        {
+            await Api.MapRuleToRepositoryAsync(
+                Guid.Parse(selectedRuleId),
+                selectedRepository.Id,
+                new RuleMappingRequest
+                {
+                    PriorityOverride = mappingPriorityOverride,
+                    FilePatternsOverride = mappingFilePatternsOverride
+                });
+
+            CloseAddModal();
+            await LoadMappedRules();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"新增失敗: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task RemoveRule(RuleDto rule)
+    {
+        if (selectedRepository == null) return;
+
+        try
+        {
+            await Api.UnmapRuleFromRepositoryAsync(rule.Id, selectedRepository.Id);
+            await LoadMappedRules();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"移除失敗: {ex.Message}";
+        }
+    }
+
+    private string GetPlatformBadgeClass(int platform) => platform switch
+    {
+        1 => "bg-dark",
+        2 => "bg-orange",
+        3 => "bg-primary",
+        _ => "bg-secondary"
+    };
+
+    private string GetTypeBadgeClass(int type) => type switch
+    {
+        1 => "bg-danger",
+        2 => "bg-info",
+        3 => "bg-warning text-dark",
+        4 => "bg-success",
+        5 => "bg-secondary",
+        6 => "bg-primary",
+        _ => "bg-dark"
+    };
+}
+
+<style>
+    .bg-orange {
+        background-color: #fc6d26 !important;
+    }
+</style>

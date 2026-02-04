@@ -1,0 +1,299 @@
+@page "/hotkeywords"
+@using NineYi.Ai.CodeReview.Web.Models
+@using NineYi.Ai.CodeReview.Web.Services
+@inject IApiClient Api
+@rendermode InteractiveServer
+
+<PageTitle>Hot Keywords - Code Review</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">
+        <i class="bi bi-shield-exclamation me-2"></i>Hot Keyword 管理
+    </h4>
+    <button class="btn btn-primary" @onclick="ShowCreateModal">
+        <i class="bi bi-plus-circle me-2"></i>新增 Keyword
+    </button>
+</div>
+
+@if (isLoading)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (keywords.Count == 0)
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>
+        尚未設定任何 Hot Keyword，請點擊「新增 Keyword」開始設定。
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>關鍵字</th>
+                        <th>類別</th>
+                        <th>嚴重程度</th>
+                        <th>提示訊息</th>
+                        <th>Regex</th>
+                        <th>觸發次數</th>
+                        <th>狀態</th>
+                        <th style="width: 150px;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var kw in keywords)
+                    {
+                        <tr>
+                            <td><code>@kw.Keyword</code></td>
+                            <td>
+                                <span class="badge bg-secondary">
+                                    @EnumHelpers.GetCategoryName(kw.Category)
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-@EnumHelpers.GetSeverityColor(kw.Severity)">
+                                    @EnumHelpers.GetSeverityName(kw.Severity)
+                                </span>
+                            </td>
+                            <td><small>@TruncateText(kw.AlertMessage, 40)</small></td>
+                            <td>
+                                @if (kw.IsRegex)
+                                {
+                                    <i class="bi bi-check-circle text-success"></i>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-x-circle text-muted"></i>
+                                }
+                            </td>
+                            <td>@kw.TriggerCount</td>
+                            <td>
+                                @if (kw.IsActive)
+                                {
+                                    <span class="badge bg-success">啟用</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">停用</span>
+                                }
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ShowEditModal(kw)">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteKeyword(kw)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@if (showModal)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditing ? "編輯" : "新增") Hot Keyword</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">關鍵字 *</label>
+                            <input type="text" class="form-control" @bind="formModel.Keyword" placeholder="password" />
+                            <small class="text-muted">如果啟用 Regex，可使用正則表達式</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">類別 *</label>
+                            <select class="form-select" @bind="formModel.Category">
+                                <option value="1">Security</option>
+                                <option value="2">Performance</option>
+                                <option value="3">Deprecated</option>
+                                <option value="4">Configuration</option>
+                                <option value="5">Sensitive</option>
+                                <option value="99">Custom</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">嚴重程度 *</label>
+                            <select class="form-select" @bind="formModel.Severity">
+                                <option value="1">Info</option>
+                                <option value="2">Warning</option>
+                                <option value="3">Error</option>
+                                <option value="4">Critical</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check mt-4 pt-2">
+                                <input type="checkbox" class="form-check-input" id="isRegex" @bind="formModel.IsRegex" />
+                                <label class="form-check-label" for="isRegex">使用正則表達式</label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">提示訊息 *</label>
+                            <textarea class="form-control" rows="2" @bind="formModel.AlertMessage" placeholder="偵測到硬編碼密碼，請使用環境變數或設定檔"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">檔案模式</label>
+                            <input type="text" class="form-control" @bind="formModel.FilePatterns" placeholder="*.cs,*.js,*.config" />
+                            <small class="text-muted">留空則適用所有檔案</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">取消</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveKeyword" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        儲存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div class="toast show bg-danger text-white">
+            <div class="toast-body">
+                <i class="bi bi-exclamation-circle me-2"></i>@errorMessage
+                <button type="button" class="btn-close btn-close-white ms-2" @onclick="() => errorMessage = null"></button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<HotKeywordDto> keywords = new();
+    private bool isLoading = true;
+    private bool showModal;
+    private bool isEditing;
+    private bool isSaving;
+    private string? errorMessage;
+    private Guid? editingId;
+    private CreateHotKeywordRequest formModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadKeywords();
+    }
+
+    private async Task LoadKeywords()
+    {
+        isLoading = true;
+        try
+        {
+            keywords = await Api.GetHotKeywordsAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"載入失敗: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowCreateModal()
+    {
+        formModel = new CreateHotKeywordRequest { Category = 1, Severity = 2 };
+        isEditing = false;
+        editingId = null;
+        showModal = true;
+    }
+
+    private void ShowEditModal(HotKeywordDto kw)
+    {
+        formModel = new CreateHotKeywordRequest
+        {
+            Keyword = kw.Keyword,
+            Category = kw.Category,
+            Severity = kw.Severity,
+            AlertMessage = kw.AlertMessage,
+            IsRegex = kw.IsRegex,
+            FilePatterns = kw.FilePatterns
+        };
+        isEditing = true;
+        editingId = kw.Id;
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        editingId = null;
+    }
+
+    private async Task SaveKeyword()
+    {
+        isSaving = true;
+        try
+        {
+            if (isEditing && editingId.HasValue)
+            {
+                await Api.UpdateHotKeywordAsync(editingId.Value, new UpdateHotKeywordRequest
+                {
+                    Keyword = formModel.Keyword,
+                    Category = formModel.Category,
+                    Severity = formModel.Severity,
+                    AlertMessage = formModel.AlertMessage,
+                    IsRegex = formModel.IsRegex,
+                    FilePatterns = formModel.FilePatterns
+                });
+            }
+            else
+            {
+                await Api.CreateHotKeywordAsync(formModel);
+            }
+
+            CloseModal();
+            await LoadKeywords();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"儲存失敗: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeleteKeyword(HotKeywordDto kw)
+    {
+        try
+        {
+            await Api.DeleteHotKeywordAsync(kw.Id);
+            await LoadKeywords();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"刪除失敗: {ex.Message}";
+        }
+    }
+
+    private string TruncateText(string text, int maxLength)
+    {
+        if (string.IsNullOrEmpty(text) || text.Length <= maxLength)
+            return text;
+        return text.Substring(0, maxLength) + "...";
+    }
+}
