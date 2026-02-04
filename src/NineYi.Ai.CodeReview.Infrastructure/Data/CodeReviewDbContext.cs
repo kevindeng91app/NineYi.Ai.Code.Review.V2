@@ -74,8 +74,6 @@ public class CodeReviewDbContext : DbContext
             entity.Property(e => e.PullRequestTitle).HasMaxLength(500);
             entity.Property(e => e.Author).HasMaxLength(200);
             entity.Property(e => e.ErrorMessage).HasMaxLength(2000);
-            entity.Property(e => e.EstimatedCost).HasPrecision(18, 6);
-
             entity.HasOne(e => e.Repository)
                 .WithMany(r => r.ReviewLogs)
                 .HasForeignKey(e => e.RepositoryId)
@@ -130,7 +128,6 @@ public class CodeReviewDbContext : DbContext
             entity.Property(e => e.DifyRequestId).HasMaxLength(200);
             entity.Property(e => e.ModelName).HasMaxLength(100);
             entity.Property(e => e.ErrorMessage).HasMaxLength(2000);
-            entity.Property(e => e.EstimatedCost).HasPrecision(18, 6);
 
             entity.HasOne(e => e.ReviewLog)
                 .WithMany()

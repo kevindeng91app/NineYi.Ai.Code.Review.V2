@@ -16,9 +16,9 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<CodeReview
 
         var optionsBuilder = new DbContextOptionsBuilder<CodeReviewDbContext>();
         var connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? "Server=localhost;Database=NineYiCodeReview;Trusted_Connection=True;TrustServerCertificate=True;";
+            ?? "Data Source=CodeReview.db";
 
-        optionsBuilder.UseSqlServer(connectionString);
+        optionsBuilder.UseSqlite(connectionString);
 
         return new CodeReviewDbContext(optionsBuilder.Options);
     }
