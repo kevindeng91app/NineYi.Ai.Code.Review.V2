@@ -196,7 +196,13 @@ public class CreateRuleRequest
 {
     public required string Name { get; set; }
     public string Description { get; set; } = string.Empty;
-    public required string DifyApiEndpoint { get; set; }
+    /// <summary>
+    /// Dify API Endpoint（可選，若未設定則使用全域設定）
+    /// </summary>
+    public string? DifyApiEndpoint { get; set; }
+    /// <summary>
+    /// Dify API Key（必填，對應不同的 Workflow/App）
+    /// </summary>
     public required string DifyApiKey { get; set; }
     public RuleType Type { get; set; }
     public int Priority { get; set; } = 100;

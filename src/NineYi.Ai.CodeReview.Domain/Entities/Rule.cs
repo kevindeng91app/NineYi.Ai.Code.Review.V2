@@ -12,12 +12,12 @@ public class Rule
     public string Description { get; set; } = string.Empty;
 
     /// <summary>
-    /// Dify API Endpoint
+    /// Dify API Endpoint（可選，若未設定則使用全域設定）
     /// </summary>
-    public string DifyApiEndpoint { get; set; } = string.Empty;
+    public string? DifyApiEndpoint { get; set; }
 
     /// <summary>
-    /// Dify API Key
+    /// Dify API Key（對應不同的 Dify Workflow/App）
     /// </summary>
     public string DifyApiKey { get; set; } = string.Empty;
 

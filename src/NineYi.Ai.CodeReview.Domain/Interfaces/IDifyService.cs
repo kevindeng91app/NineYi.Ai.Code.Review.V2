@@ -11,8 +11,16 @@ public interface IDifyService
 
 public class DifyReviewRequest
 {
-    public string ApiEndpoint { get; set; } = string.Empty;
+    /// <summary>
+    /// Dify API Endpoint（可選，若未設定則使用全域設定）
+    /// </summary>
+    public string? ApiEndpoint { get; set; }
+
+    /// <summary>
+    /// Dify API Key（必填，對應不同的 Workflow/App）
+    /// </summary>
     public string ApiKey { get; set; } = string.Empty;
+
     public string FileName { get; set; } = string.Empty;
     public string FileDiff { get; set; } = string.Empty;
     public string? FileContent { get; set; }

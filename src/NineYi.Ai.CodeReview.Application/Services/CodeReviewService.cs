@@ -1,9 +1,11 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NineYi.Ai.CodeReview.Application.DTOs;
 using NineYi.Ai.CodeReview.Domain.Entities;
 using NineYi.Ai.CodeReview.Domain.Interfaces;
+using NineYi.Ai.CodeReview.Domain.Settings;
 
 namespace NineYi.Ai.CodeReview.Application.Services;
 
@@ -17,6 +19,7 @@ public class CodeReviewService : ICodeReviewService
     private readonly IDifyUsageLogRepository _difyUsageLogRepository;
     private readonly IGitPlatformServiceFactory _gitPlatformServiceFactory;
     private readonly IDifyService _difyService;
+    private readonly DifySettings _difySettings;
     private readonly ILogger<CodeReviewService> _logger;
 
     public CodeReviewService(
@@ -28,6 +31,7 @@ public class CodeReviewService : ICodeReviewService
         IDifyUsageLogRepository difyUsageLogRepository,
         IGitPlatformServiceFactory gitPlatformServiceFactory,
         IDifyService difyService,
+        IOptions<DifySettings> difySettings,
         ILogger<CodeReviewService> logger)
     {
         _repositoryRepository = repositoryRepository;
@@ -38,6 +42,7 @@ public class CodeReviewService : ICodeReviewService
         _difyUsageLogRepository = difyUsageLogRepository;
         _gitPlatformServiceFactory = gitPlatformServiceFactory;
         _difyService = difyService;
+        _difySettings = difySettings.Value;
         _logger = logger;
     }
 
@@ -329,11 +334,9 @@ public class CodeReviewService : ICodeReviewService
         return $"{severity} {category}{comment.Comment} {ruleName}".Trim();
     }
 
-    private static decimal CalculateCost(int tokens)
+    private decimal CalculateCost(int tokens)
     {
-        // 預設費率（可從設定讀取）
-        const decimal costPer1000Tokens = 0.002m;
-        return tokens * costPer1000Tokens / 1000;
+        return tokens * _difySettings.CostPer1000Tokens / 1000;
     }
 
     public async Task<ReviewResultDto?> GetReviewStatusAsync(Guid reviewLogId, CancellationToken cancellationToken = default)

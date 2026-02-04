@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NineYi.Ai.CodeReview.Application.Services;
 using NineYi.Ai.CodeReview.Domain.Interfaces;
+using NineYi.Ai.CodeReview.Domain.Settings;
 using NineYi.Ai.CodeReview.Infrastructure.Data;
 using NineYi.Ai.CodeReview.Infrastructure.Repositories;
 using NineYi.Ai.CodeReview.Infrastructure.Services;
@@ -16,6 +17,9 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
+        // Settings
+        services.Configure<DifySettings>(configuration.GetSection(DifySettings.SectionName));
+
         // Database - SQLite
         services.AddDbContext<CodeReviewDbContext>(options =>
         {

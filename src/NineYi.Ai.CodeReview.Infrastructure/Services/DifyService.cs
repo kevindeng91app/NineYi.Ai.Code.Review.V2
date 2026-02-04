@@ -3,24 +3,33 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NineYi.Ai.CodeReview.Domain.Interfaces;
+using NineYi.Ai.CodeReview.Domain.Settings;
 
 namespace NineYi.Ai.CodeReview.Infrastructure.Services;
 
 public class DifyService : IDifyService
 {
     private readonly HttpClient _httpClient;
+    private readonly DifySettings _settings;
     private readonly ILogger<DifyService> _logger;
 
-    public DifyService(HttpClient httpClient, ILogger<DifyService> logger)
+    public DifyService(HttpClient httpClient, IOptions<DifySettings> settings, ILogger<DifyService> logger)
     {
         _httpClient = httpClient;
+        _settings = settings.Value;
         _logger = logger;
     }
 
     public async Task<DifyReviewResult> ReviewCodeAsync(DifyReviewRequest request, CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
+
+        // 使用 request 中的 endpoint，若未設定則使用全域設定
+        var apiEndpoint = !string.IsNullOrWhiteSpace(request.ApiEndpoint)
+            ? request.ApiEndpoint
+            : _settings.ApiEndpoint;
 
         try
         {
@@ -44,7 +53,7 @@ public class DifyService : IDifyService
             var json = JsonSerializer.Serialize(payload);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.PostAsync(request.ApiEndpoint, content, cancellationToken);
+            var response = await _httpClient.PostAsync(apiEndpoint, content, cancellationToken);
             var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
 
             stopwatch.Stop();

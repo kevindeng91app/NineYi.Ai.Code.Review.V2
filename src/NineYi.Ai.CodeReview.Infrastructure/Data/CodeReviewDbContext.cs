@@ -42,7 +42,7 @@ public class CodeReviewDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).HasMaxLength(200).IsRequired();
             entity.Property(e => e.Description).HasMaxLength(2000);
-            entity.Property(e => e.DifyApiEndpoint).HasMaxLength(500).IsRequired();
+            entity.Property(e => e.DifyApiEndpoint).HasMaxLength(500); // 可選，未設定則使用全域設定
             entity.Property(e => e.DifyApiKey).HasMaxLength(500).IsRequired();
             entity.Property(e => e.FilePatterns).HasMaxLength(500);
         });
