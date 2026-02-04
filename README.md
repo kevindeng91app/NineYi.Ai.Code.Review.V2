@@ -60,22 +60,23 @@ src/
 ### Prerequisites
 
 - .NET 8.0 SDK
-- SQL Server (or SQL Server Express)
 - Dify API access
 
 ### Configuration
 
-1. Update `appsettings.json` with your database connection string:
+The application uses SQLite as the database, which requires no additional setup.
+
+1. Database connection string in `appsettings.json` (default is fine for most cases):
 
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost;Database=NineYiCodeReview;Trusted_Connection=True;TrustServerCertificate=True;"
+    "DefaultConnection": "Data Source=CodeReview.db"
   }
 }
 ```
 
-2. Run database migrations:
+2. Run database migrations (optional - database is auto-created in development):
 
 ```bash
 cd src/NineYi.Ai.CodeReview.Api
@@ -88,6 +89,8 @@ dotnet ef database update --project ../NineYi.Ai.CodeReview.Infrastructure
 ```bash
 dotnet run --project src/NineYi.Ai.CodeReview.Api
 ```
+
+The SQLite database file (`CodeReview.db` or `CodeReview_Dev.db` for development) will be created automatically in the application directory.
 
 ### API Endpoints
 
