@@ -1,0 +1,19 @@
+@inherits LayoutComponentBase
+
+<div class="d-flex">
+    <NavMenu />
+
+    <main class="flex-grow-1">
+        <div class="top-bar border-bottom px-4 py-2 d-flex align-items-center">
+            <h5 class="mb-0">@PageTitle</h5>
+        </div>
+        <div class="content p-4">
+            @Body
+        </div>
+    </main>
+</div>
+
+@code {
+    [CascadingParameter]
+    private string? PageTitle { get; set; }
+}

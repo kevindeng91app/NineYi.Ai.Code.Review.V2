@@ -1,0 +1,296 @@
+@page "/rules"
+@using NineYi.Ai.CodeReview.Web.Models
+@using NineYi.Ai.CodeReview.Web.Services
+@inject IApiClient Api
+@rendermode InteractiveServer
+
+<PageTitle>Rules - Code Review</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">
+        <i class="bi bi-list-check me-2"></i>Rule 管理
+    </h4>
+    <button class="btn btn-primary" @onclick="ShowCreateModal">
+        <i class="bi bi-plus-circle me-2"></i>新增 Rule
+    </button>
+</div>
+
+@if (isLoading)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (rules.Count == 0)
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>
+        尚未設定任何 Rule，請點擊「新增 Rule」開始設定。
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>名稱</th>
+                        <th>描述</th>
+                        <th>類型</th>
+                        <th>優先順序</th>
+                        <th>檔案模式</th>
+                        <th>狀態</th>
+                        <th style="width: 150px;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var rule in rules)
+                    {
+                        <tr>
+                            <td><strong>@rule.Name</strong></td>
+                            <td><small class="text-muted">@TruncateText(rule.Description, 50)</small></td>
+                            <td>
+                                <span class="badge @GetTypeBadgeClass(rule.Type)">
+                                    @EnumHelpers.GetRuleTypeName(rule.Type)
+                                </span>
+                            </td>
+                            <td>@rule.Priority</td>
+                            <td><code>@(rule.FilePatterns ?? "*")</code></td>
+                            <td>
+                                @if (rule.IsActive)
+                                {
+                                    <span class="badge bg-success">啟用</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">停用</span>
+                                }
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ShowEditModal(rule)">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteRule(rule)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@if (showModal)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditing ? "編輯" : "新增") Rule</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">名稱 *</label>
+                            <input type="text" class="form-control" @bind="formModel.Name" placeholder="Security Check" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">類型 *</label>
+                            <select class="form-select" @bind="formModel.Type">
+                                <option value="1">Security</option>
+                                <option value="2">CodeStyle</option>
+                                <option value="3">Performance</option>
+                                <option value="4">BestPractice</option>
+                                <option value="5">Documentation</option>
+                                <option value="6">Testing</option>
+                                <option value="99">Custom</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">描述</label>
+                            <textarea class="form-control" rows="2" @bind="formModel.Description" placeholder="檢查程式碼中的安全性漏洞"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Dify API Key *</label>
+                            <input type="password" class="form-control" @bind="formModel.DifyApiKey" placeholder="app-xxxxxxxxxxxx" />
+                            <small class="text-muted">對應 Dify 的 Workflow/App API Key</small>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Dify API Endpoint</label>
+                            <input type="text" class="form-control" @bind="formModel.DifyApiEndpoint" placeholder="留空則使用全域設定" />
+                            <small class="text-muted">預設使用 appsettings.json 中的設定</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">優先順序</label>
+                            <input type="number" class="form-control" @bind="formModel.Priority" />
+                            <small class="text-muted">數字越小優先順序越高</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">檔案模式</label>
+                            <input type="text" class="form-control" @bind="formModel.FilePatterns" placeholder="*.cs,*.js,*.ts" />
+                            <small class="text-muted">留空則適用所有檔案</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">取消</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveRule" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        儲存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div class="toast show bg-danger text-white">
+            <div class="toast-body">
+                <i class="bi bi-exclamation-circle me-2"></i>@errorMessage
+                <button type="button" class="btn-close btn-close-white ms-2" @onclick="() => errorMessage = null"></button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<RuleDto> rules = new();
+    private bool isLoading = true;
+    private bool showModal;
+    private bool isEditing;
+    private bool isSaving;
+    private string? errorMessage;
+    private Guid? editingId;
+    private CreateRuleRequest formModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRules();
+    }
+
+    private async Task LoadRules()
+    {
+        isLoading = true;
+        try
+        {
+            rules = await Api.GetRulesAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"載入失敗: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowCreateModal()
+    {
+        formModel = new CreateRuleRequest { Type = 1, Priority = 100 };
+        isEditing = false;
+        editingId = null;
+        showModal = true;
+    }
+
+    private void ShowEditModal(RuleDto rule)
+    {
+        formModel = new CreateRuleRequest
+        {
+            Name = rule.Name,
+            Description = rule.Description,
+            DifyApiEndpoint = rule.DifyApiEndpoint,
+            Type = rule.Type,
+            Priority = rule.Priority,
+            FilePatterns = rule.FilePatterns
+        };
+        isEditing = true;
+        editingId = rule.Id;
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        editingId = null;
+    }
+
+    private async Task SaveRule()
+    {
+        isSaving = true;
+        try
+        {
+            if (isEditing && editingId.HasValue)
+            {
+                await Api.UpdateRuleAsync(editingId.Value, new UpdateRuleRequest
+                {
+                    Name = formModel.Name,
+                    Description = formModel.Description,
+                    DifyApiEndpoint = formModel.DifyApiEndpoint,
+                    DifyApiKey = string.IsNullOrWhiteSpace(formModel.DifyApiKey) ? null : formModel.DifyApiKey,
+                    Type = formModel.Type,
+                    Priority = formModel.Priority,
+                    FilePatterns = formModel.FilePatterns
+                });
+            }
+            else
+            {
+                await Api.CreateRuleAsync(formModel);
+            }
+
+            CloseModal();
+            await LoadRules();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"儲存失敗: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeleteRule(RuleDto rule)
+    {
+        try
+        {
+            await Api.DeleteRuleAsync(rule.Id);
+            await LoadRules();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"刪除失敗: {ex.Message}";
+        }
+    }
+
+    private string GetTypeBadgeClass(int type) => type switch
+    {
+        1 => "bg-danger",
+        2 => "bg-info",
+        3 => "bg-warning text-dark",
+        4 => "bg-success",
+        5 => "bg-secondary",
+        6 => "bg-primary",
+        _ => "bg-dark"
+    };
+
+    private string TruncateText(string text, int maxLength)
+    {
+        if (string.IsNullOrEmpty(text) || text.Length <= maxLength)
+            return text;
+        return text.Substring(0, maxLength) + "...";
+    }
+}

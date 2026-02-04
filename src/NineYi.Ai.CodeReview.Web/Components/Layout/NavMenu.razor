@@ -1,0 +1,67 @@
+<div class="sidebar bg-dark text-white" style="width: 250px; min-height: 100vh;">
+    <div class="p-3 border-bottom border-secondary">
+        <h5 class="mb-0">
+            <i class="bi bi-code-square me-2"></i>
+            Code Review
+        </h5>
+        <small class="text-muted">管理後台</small>
+    </div>
+
+    <nav class="nav flex-column p-2">
+        <NavLink class="nav-link text-white" href="" Match="NavLinkMatch.All">
+            <i class="bi bi-speedometer2 me-2"></i>
+            Dashboard
+        </NavLink>
+
+        <hr class="border-secondary my-2" />
+        <small class="text-muted px-3 mb-1">設定管理</small>
+
+        <NavLink class="nav-link text-white" href="repositories">
+            <i class="bi bi-folder me-2"></i>
+            Repositories
+        </NavLink>
+
+        <NavLink class="nav-link text-white" href="rules">
+            <i class="bi bi-list-check me-2"></i>
+            Rules
+        </NavLink>
+
+        <NavLink class="nav-link text-white" href="hotkeywords">
+            <i class="bi bi-shield-exclamation me-2"></i>
+            Hot Keywords
+        </NavLink>
+
+        <NavLink class="nav-link text-white" href="mappings">
+            <i class="bi bi-diagram-3 me-2"></i>
+            Rule Mappings
+        </NavLink>
+
+        <hr class="border-secondary my-2" />
+        <small class="text-muted px-3 mb-1">報表分析</small>
+
+        <NavLink class="nav-link text-white" href="statistics">
+            <i class="bi bi-bar-chart me-2"></i>
+            統計報表
+        </NavLink>
+
+        <NavLink class="nav-link text-white" href="logs">
+            <i class="bi bi-journal-text me-2"></i>
+            執行紀錄
+        </NavLink>
+    </nav>
+</div>
+
+<style>
+    .sidebar .nav-link {
+        border-radius: 0.375rem;
+        margin-bottom: 2px;
+    }
+
+    .sidebar .nav-link:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .sidebar .nav-link.active {
+        background-color: var(--bs-primary);
+    }
+</style>

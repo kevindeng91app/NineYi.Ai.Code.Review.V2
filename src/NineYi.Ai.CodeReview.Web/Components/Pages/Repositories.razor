@@ -1,0 +1,289 @@
+@page "/repositories"
+@using NineYi.Ai.CodeReview.Web.Models
+@using NineYi.Ai.CodeReview.Web.Services
+@inject IApiClient Api
+@rendermode InteractiveServer
+
+<PageTitle>Repositories - Code Review</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">
+        <i class="bi bi-folder me-2"></i>Repository 管理
+    </h4>
+    <button class="btn btn-primary" @onclick="ShowCreateModal">
+        <i class="bi bi-plus-circle me-2"></i>新增 Repository
+    </button>
+</div>
+
+@if (isLoading)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else if (repositories.Count == 0)
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>
+        尚未設定任何 Repository，請點擊「新增 Repository」開始設定。
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>名稱</th>
+                        <th>Full Name</th>
+                        <th>平台</th>
+                        <th>狀態</th>
+                        <th>建立時間</th>
+                        <th style="width: 150px;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var repo in repositories)
+                    {
+                        <tr>
+                            <td><strong>@repo.Name</strong></td>
+                            <td><code>@repo.FullName</code></td>
+                            <td>
+                                <span class="badge @GetPlatformBadgeClass(repo.Platform)">
+                                    <i class="bi @GetPlatformIcon(repo.Platform) me-1"></i>
+                                    @EnumHelpers.GetPlatformName(repo.Platform)
+                                </span>
+                            </td>
+                            <td>
+                                @if (repo.IsActive)
+                                {
+                                    <span class="badge bg-success">啟用</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">停用</span>
+                                }
+                            </td>
+                            <td>@repo.CreatedAt.ToString("yyyy/MM/dd HH:mm")</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ShowEditModal(repo)">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteRepository(repo)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@if (showModal)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditing ? "編輯" : "新增") Repository</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">名稱 *</label>
+                            <input type="text" class="form-control" @bind="formModel.Name" placeholder="my-project" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Full Name *</label>
+                            <input type="text" class="form-control" @bind="formModel.FullName" placeholder="org/my-project" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">平台 *</label>
+                            <select class="form-select" @bind="formModel.Platform">
+                                <option value="1">GitHub</option>
+                                <option value="2">GitLab</option>
+                                <option value="3">Bitbucket</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Platform Repository ID *</label>
+                            <input type="text" class="form-control" @bind="formModel.PlatformRepositoryId" placeholder="123456789" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Access Token</label>
+                            <input type="password" class="form-control" @bind="formModel.AccessToken" placeholder="ghp_xxxxxxxxxxxx" />
+                            <small class="text-muted">用於存取 Repository 和回覆評論</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Webhook Secret</label>
+                            <input type="password" class="form-control" @bind="formModel.WebhookSecret" placeholder="your-webhook-secret" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">API Base URL</label>
+                            <input type="text" class="form-control" @bind="formModel.ApiBaseUrl" placeholder="https://api.github.com" />
+                            <small class="text-muted">僅在自架 Git 服務時需要設定</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">取消</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveRepository" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        儲存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div class="toast show bg-danger text-white">
+            <div class="toast-body">
+                <i class="bi bi-exclamation-circle me-2"></i>@errorMessage
+                <button type="button" class="btn-close btn-close-white ms-2" @onclick="() => errorMessage = null"></button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<RepositoryDto> repositories = new();
+    private bool isLoading = true;
+    private bool showModal;
+    private bool isEditing;
+    private bool isSaving;
+    private string? errorMessage;
+    private Guid? editingId;
+    private CreateRepositoryRequest formModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRepositories();
+    }
+
+    private async Task LoadRepositories()
+    {
+        isLoading = true;
+        try
+        {
+            repositories = await Api.GetRepositoriesAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"載入失敗: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowCreateModal()
+    {
+        formModel = new CreateRepositoryRequest { Platform = 1 };
+        isEditing = false;
+        editingId = null;
+        showModal = true;
+    }
+
+    private void ShowEditModal(RepositoryDto repo)
+    {
+        formModel = new CreateRepositoryRequest
+        {
+            Name = repo.Name,
+            FullName = repo.FullName,
+            Platform = repo.Platform,
+            PlatformRepositoryId = repo.PlatformRepositoryId,
+            ApiBaseUrl = repo.ApiBaseUrl
+        };
+        isEditing = true;
+        editingId = repo.Id;
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        editingId = null;
+    }
+
+    private async Task SaveRepository()
+    {
+        isSaving = true;
+        try
+        {
+            if (isEditing && editingId.HasValue)
+            {
+                await Api.UpdateRepositoryAsync(editingId.Value, new UpdateRepositoryRequest
+                {
+                    Name = formModel.Name,
+                    AccessToken = formModel.AccessToken,
+                    WebhookSecret = formModel.WebhookSecret,
+                    ApiBaseUrl = formModel.ApiBaseUrl
+                });
+            }
+            else
+            {
+                await Api.CreateRepositoryAsync(formModel);
+            }
+
+            CloseModal();
+            await LoadRepositories();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"儲存失敗: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeleteRepository(RepositoryDto repo)
+    {
+        try
+        {
+            await Api.DeleteRepositoryAsync(repo.Id);
+            await LoadRepositories();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"刪除失敗: {ex.Message}";
+        }
+    }
+
+    private string GetPlatformBadgeClass(int platform) => platform switch
+    {
+        1 => "bg-dark",
+        2 => "bg-orange",
+        3 => "bg-primary",
+        _ => "bg-secondary"
+    };
+
+    private string GetPlatformIcon(int platform) => platform switch
+    {
+        1 => "bi-github",
+        2 => "bi-gitlab",
+        3 => "bi-bucket",
+        _ => "bi-git"
+    };
+}
+
+<style>
+    .bg-orange {
+        background-color: #fc6d26 !important;
+    }
+</style>

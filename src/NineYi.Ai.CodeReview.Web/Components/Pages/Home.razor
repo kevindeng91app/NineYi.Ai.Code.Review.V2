@@ -1,0 +1,194 @@
+@page "/"
+@using NineYi.Ai.CodeReview.Web.Models
+@using NineYi.Ai.CodeReview.Web.Services
+@inject IApiClient Api
+
+<PageTitle>Dashboard - Code Review</PageTitle>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-1">Repositories</h6>
+                        <h2 class="card-title mb-0">@repositoryCount</h2>
+                    </div>
+                    <i class="bi bi-folder fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-1">Rules</h6>
+                        <h2 class="card-title mb-0">@ruleCount</h2>
+                    </div>
+                    <i class="bi bi-list-check fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-1">Hot Keywords</h6>
+                        <h2 class="card-title mb-0">@keywordCount</h2>
+                    </div>
+                    <i class="bi bi-shield-exclamation fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-1">本月費用</h6>
+                        <h2 class="card-title mb-0">$@usageSummary.TotalCost.ToString("F4")</h2>
+                    </div>
+                    <i class="bi bi-currency-dollar fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-bar-chart me-2"></i>
+                    規則觸發排行
+                </h5>
+            </div>
+            <div class="card-body">
+                @if (topRules.Count == 0)
+                {
+                    <p class="text-muted text-center py-4">尚無統計資料</p>
+                }
+                else
+                {
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>規則名稱</th>
+                                <th>類型</th>
+                                <th>觸發次數</th>
+                                <th>評論數</th>
+                                <th>評論率</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var rule in topRules)
+                            {
+                                <tr>
+                                    <td>@rule.RuleName</td>
+                                    <td><span class="badge bg-secondary">@rule.RuleType</span></td>
+                                    <td>@rule.TotalTriggers</td>
+                                    <td>@rule.TotalComments</td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar @(rule.CommentRate > 50 ? "bg-warning" : "bg-success")"
+                                                 style="width: @rule.CommentRate%">
+                                                @rule.CommentRate.ToString("F1")%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    使用統計
+                </h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>統計期間</span>
+                        <span class="text-muted">@usageSummary.FromDate.ToString("yyyy/MM/dd") - @usageSummary.ToDate.ToString("yyyy/MM/dd")</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>總 Token 使用量</span>
+                        <strong>@usageSummary.TotalTokensConsumed.ToString("N0")</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>總費用</span>
+                        <strong class="text-primary">$@usageSummary.TotalCost.ToString("F4")</strong>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-lightning me-2"></i>
+                    快速操作
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="/repositories" class="btn btn-outline-primary">
+                        <i class="bi bi-plus-circle me-2"></i>新增 Repository
+                    </a>
+                    <a href="/rules" class="btn btn-outline-success">
+                        <i class="bi bi-plus-circle me-2"></i>新增 Rule
+                    </a>
+                    <a href="/hotkeywords" class="btn btn-outline-warning">
+                        <i class="bi bi-plus-circle me-2"></i>新增 Hot Keyword
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int repositoryCount;
+    private int ruleCount;
+    private int keywordCount;
+    private UsageSummaryDto usageSummary = new();
+    private List<RuleStatisticsDto> topRules = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var reposTask = Api.GetRepositoriesAsync();
+            var rulesTask = Api.GetRulesAsync();
+            var keywordsTask = Api.GetHotKeywordsAsync();
+            var usageTask = Api.GetUsageSummaryAsync();
+            var topRulesTask = Api.GetTopTriggeredRulesAsync(5);
+
+            await Task.WhenAll(reposTask, rulesTask, keywordsTask, usageTask, topRulesTask);
+
+            repositoryCount = (await reposTask).Count;
+            ruleCount = (await rulesTask).Count;
+            keywordCount = (await keywordsTask).Count;
+            usageSummary = await usageTask;
+            topRules = await topRulesTask;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading dashboard: {ex.Message}");
+        }
+    }
+}
