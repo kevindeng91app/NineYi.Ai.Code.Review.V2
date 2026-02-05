@@ -11,20 +11,20 @@ public class WebhookController : ControllerBase
 {
     private readonly IEnumerable<IWebhookParserService> _parsers;
     private readonly ICodeReviewService _codeReviewService;
-    private readonly IRepositoryRepository _repositoryRepository;
+    private readonly IPlatformSettingsRepository _platformSettingsRepository;
     private readonly IGitPlatformServiceFactory _gitPlatformServiceFactory;
     private readonly ILogger<WebhookController> _logger;
 
     public WebhookController(
         IEnumerable<IWebhookParserService> parsers,
         ICodeReviewService codeReviewService,
-        IRepositoryRepository repositoryRepository,
+        IPlatformSettingsRepository platformSettingsRepository,
         IGitPlatformServiceFactory gitPlatformServiceFactory,
         ILogger<WebhookController> logger)
     {
         _parsers = parsers;
         _codeReviewService = codeReviewService;
-        _repositoryRepository = repositoryRepository;
+        _platformSettingsRepository = platformSettingsRepository;
         _gitPlatformServiceFactory = gitPlatformServiceFactory;
         _logger = logger;
     }
@@ -113,13 +113,12 @@ public class WebhookController : ControllerBase
             // 驗證 webhook signature（如果有設定的話）
             if (!string.IsNullOrEmpty(signature))
             {
-                var repository = await _repositoryRepository.GetByFullNameAsync(
-                    platform, webhookPayload.Repository.FullName, cancellationToken);
+                var platformSettings = await _platformSettingsRepository.GetByPlatformAsync(platform, cancellationToken);
 
-                if (repository != null && !string.IsNullOrEmpty(repository.WebhookSecret))
+                if (platformSettings != null && !string.IsNullOrEmpty(platformSettings.WebhookSecret))
                 {
                     var gitService = _gitPlatformServiceFactory.GetService(platform);
-                    if (!gitService.ValidateWebhookSignature(payload, signature, repository.WebhookSecret))
+                    if (!gitService.ValidateWebhookSignature(payload, signature, platformSettings.WebhookSecret))
                     {
                         _logger.LogWarning("Invalid webhook signature for repository {Repository}",
                             webhookPayload.Repository.FullName);
