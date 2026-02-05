@@ -17,6 +17,7 @@ public class CodeReviewDbContext : DbContext
     public DbSet<RuleStatistics> RuleStatistics => Set<RuleStatistics>();
     public DbSet<HotKeyword> HotKeywords => Set<HotKeyword>();
     public DbSet<DifyUsageLog> DifyUsageLogs => Set<DifyUsageLog>();
+    public DbSet<PlatformSettings> PlatformSettings => Set<PlatformSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -30,8 +31,15 @@ public class CodeReviewDbContext : DbContext
             entity.HasIndex(e => new { e.Platform, e.FullName }).IsUnique();
             entity.Property(e => e.Name).HasMaxLength(200).IsRequired();
             entity.Property(e => e.FullName).HasMaxLength(500).IsRequired();
-            entity.Property(e => e.PlatformRepositoryId).HasMaxLength(100).IsRequired();
-            entity.Property(e => e.AccessToken).HasMaxLength(500);
+            entity.Property(e => e.PlatformRepositoryId).HasMaxLength(100);
+        });
+
+        // PlatformSettings
+        modelBuilder.Entity<PlatformSettings>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Platform).IsUnique();
+            entity.Property(e => e.AccessToken).HasMaxLength(500).IsRequired();
             entity.Property(e => e.WebhookSecret).HasMaxLength(200);
             entity.Property(e => e.ApiBaseUrl).HasMaxLength(500);
         });

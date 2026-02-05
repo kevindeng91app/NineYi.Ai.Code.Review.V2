@@ -9,6 +9,8 @@ public interface IGitPlatformService
 {
     GitPlatformType Platform { get; }
 
+    Task<RepositoryInfo?> GetRepositoryInfoAsync(string repositoryFullName, string accessToken, string? apiBaseUrl = null, CancellationToken cancellationToken = default);
+
     Task<PullRequestInfo> GetPullRequestAsync(string repositoryFullName, int pullRequestNumber, string accessToken, string? apiBaseUrl = null, CancellationToken cancellationToken = default);
 
     Task<IEnumerable<PullRequestFile>> GetPullRequestFilesAsync(string repositoryFullName, int pullRequestNumber, string accessToken, string? apiBaseUrl = null, CancellationToken cancellationToken = default);
@@ -20,6 +22,16 @@ public interface IGitPlatformService
     Task PostPullRequestCommentAsync(string repositoryFullName, int pullRequestNumber, string comment, string accessToken, string? apiBaseUrl = null, CancellationToken cancellationToken = default);
 
     bool ValidateWebhookSignature(string payload, string signature, string secret);
+}
+
+public class RepositoryInfo
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string? DefaultBranch { get; set; }
+    public bool Private { get; set; }
 }
 
 public class PullRequestInfo

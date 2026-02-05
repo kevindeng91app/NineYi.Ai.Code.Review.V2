@@ -34,6 +34,7 @@ public static class DependencyInjection
         services.AddScoped<IHotKeywordRepository, HotKeywordRepository>();
         services.AddScoped<IRuleStatisticsRepository, RuleStatisticsRepository>();
         services.AddScoped<IDifyUsageLogRepository, DifyUsageLogRepository>();
+        services.AddScoped<IPlatformSettingsRepository, PlatformSettingsRepository>();
 
         // HTTP Clients with retry policy
         var retryPolicy = HttpPolicyExtensions

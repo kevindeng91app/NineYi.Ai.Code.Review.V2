@@ -13,8 +13,6 @@ builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
     client.BaseAddress = new Uri(builder.Configuration["ApiBaseUrl"] ?? "http://localhost:5000");
 });
 
-builder.Services.AddScoped<IApiClient, ApiClient>();
-
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

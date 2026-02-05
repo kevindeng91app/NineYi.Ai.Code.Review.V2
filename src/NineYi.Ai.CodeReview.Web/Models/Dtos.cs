@@ -8,29 +8,51 @@ public class RepositoryDto
     public string FullName { get; set; } = string.Empty;
     public int Platform { get; set; }
     public string PlatformRepositoryId { get; set; } = string.Empty;
-    public string? ApiBaseUrl { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
+    public int RuleCount { get; set; }
 }
 
 public class CreateRepositoryRequest
 {
-    public string Name { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public int Platform { get; set; } = 1;
-    public string PlatformRepositoryId { get; set; } = string.Empty;
-    public string? AccessToken { get; set; }
-    public string? WebhookSecret { get; set; }
-    public string? ApiBaseUrl { get; set; }
 }
 
 public class UpdateRepositoryRequest
 {
     public string? Name { get; set; }
-    public string? AccessToken { get; set; }
+    public bool? IsActive { get; set; }
+}
+
+// Platform Settings DTOs
+public class PlatformSettingsDto
+{
+    public Guid Id { get; set; }
+    public int Platform { get; set; }
+    public string PlatformName { get; set; } = string.Empty;
+    public bool HasAccessToken { get; set; }
+    public bool HasWebhookSecret { get; set; }
+    public string? ApiBaseUrl { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+}
+
+public class UpsertPlatformSettingsRequest
+{
+    public string AccessToken { get; set; } = string.Empty;
     public string? WebhookSecret { get; set; }
     public string? ApiBaseUrl { get; set; }
-    public bool? IsActive { get; set; }
+}
+
+public class RepositoryLookupResult
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string? DefaultBranch { get; set; }
+    public bool Private { get; set; }
 }
 
 // Rule DTOs

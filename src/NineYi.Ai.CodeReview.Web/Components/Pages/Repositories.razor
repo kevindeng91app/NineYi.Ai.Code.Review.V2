@@ -41,6 +41,7 @@ else
                         <th>Full Name</th>
                         <th>平台</th>
                         <th>狀態</th>
+                        <th>規則數</th>
                         <th>建立時間</th>
                         <th style="width: 150px;">操作</th>
                     </tr>
@@ -67,6 +68,7 @@ else
                                     <span class="badge bg-secondary">停用</span>
                                 }
                             </td>
+                            <td>@repo.RuleCount</td>
                             <td>@repo.CreatedAt.ToString("yyyy/MM/dd HH:mm")</td>
                             <td>
                                 <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ShowEditModal(repo)">
@@ -87,49 +89,82 @@ else
 @if (showModal)
 {
     <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">@(isEditing ? "編輯" : "新增") Repository</h5>
                     <button type="button" class="btn-close" @onclick="CloseModal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">名稱 *</label>
-                            <input type="text" class="form-control" @bind="formModel.Name" placeholder="my-project" />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Full Name *</label>
-                            <input type="text" class="form-control" @bind="formModel.FullName" placeholder="org/my-project" />
-                        </div>
-                        <div class="col-md-6">
+                    @if (!isEditing)
+                    {
+                        <div class="mb-3">
                             <label class="form-label">平台 *</label>
-                            <select class="form-select" @bind="formModel.Platform">
+                            <select class="form-select" @bind="createModel.Platform">
                                 <option value="1">GitHub</option>
                                 <option value="2">GitLab</option>
                                 <option value="3">Bitbucket</option>
                             </select>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Platform Repository ID *</label>
-                            <input type="text" class="form-control" @bind="formModel.PlatformRepositoryId" placeholder="123456789" />
+                        <div class="mb-3">
+                            <label class="form-label">Repository Full Name *</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" @bind="createModel.FullName"
+                                       placeholder="owner/repository" />
+                                <button class="btn btn-outline-secondary" type="button"
+                                        @onclick="LookupRepository" disabled="@isLookingUp">
+                                    @if (isLookingUp)
+                                    {
+                                        <span class="spinner-border spinner-border-sm"></span>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-search"></i>
+                                    }
+                                </button>
+                            </div>
+                            <small class="text-muted">例如: microsoft/vscode 或 your-org/your-repo</small>
                         </div>
-                        <div class="col-12">
-                            <label class="form-label">Access Token</label>
-                            <input type="password" class="form-control" @bind="formModel.AccessToken" placeholder="ghp_xxxxxxxxxxxx" />
-                            <small class="text-muted">用於存取 Repository 和回覆評論</small>
+
+                        @if (lookupResult != null)
+                        {
+                            <div class="alert alert-success">
+                                <strong><i class="bi bi-check-circle me-1"></i>找到 Repository</strong>
+                                <ul class="mb-0 mt-2">
+                                    <li>名稱: @lookupResult.Name</li>
+                                    <li>描述: @(lookupResult.Description ?? "(無)")</li>
+                                    <li>預設分支: @lookupResult.DefaultBranch</li>
+                                    <li>可見性: @(lookupResult.Private ? "私有" : "公開")</li>
+                                </ul>
+                            </div>
+                        }
+                        else if (lookupError != null)
+                        {
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-1"></i>@lookupError
+                                <br/><small>您仍然可以嘗試新增此 Repository。</small>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Repository</label>
+                            <input type="text" class="form-control" value="@editingRepo?.FullName" disabled />
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Webhook Secret</label>
-                            <input type="password" class="form-control" @bind="formModel.WebhookSecret" placeholder="your-webhook-secret" />
+                        <div class="mb-3">
+                            <label class="form-label">顯示名稱</label>
+                            <input type="text" class="form-control" @bind="updateModel.Name" />
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">API Base URL</label>
-                            <input type="text" class="form-control" @bind="formModel.ApiBaseUrl" placeholder="https://api.github.com" />
-                            <small class="text-muted">僅在自架 Git 服務時需要設定</small>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" @bind="isActiveForEdit" id="isActiveCheck">
+                                <label class="form-check-label" for="isActiveCheck">
+                                    啟用此 Repository
+                                </label>
+                            </div>
                         </div>
-                    </div>
+                    }
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" @onclick="CloseModal">取消</button>
@@ -164,9 +199,14 @@ else
     private bool showModal;
     private bool isEditing;
     private bool isSaving;
+    private bool isLookingUp;
     private string? errorMessage;
-    private Guid? editingId;
-    private CreateRepositoryRequest formModel = new();
+    private RepositoryDto? editingRepo;
+    private CreateRepositoryRequest createModel = new();
+    private UpdateRepositoryRequest updateModel = new();
+    private bool isActiveForEdit = true;
+    private RepositoryLookupResult? lookupResult;
+    private string? lookupError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -192,31 +232,62 @@ else
 
     private void ShowCreateModal()
     {
-        formModel = new CreateRepositoryRequest { Platform = 1 };
+        createModel = new CreateRepositoryRequest { Platform = 1 };
+        lookupResult = null;
+        lookupError = null;
         isEditing = false;
-        editingId = null;
+        editingRepo = null;
         showModal = true;
     }
 
     private void ShowEditModal(RepositoryDto repo)
     {
-        formModel = new CreateRepositoryRequest
+        editingRepo = repo;
+        updateModel = new UpdateRepositoryRequest
         {
-            Name = repo.Name,
-            FullName = repo.FullName,
-            Platform = repo.Platform,
-            PlatformRepositoryId = repo.PlatformRepositoryId,
-            ApiBaseUrl = repo.ApiBaseUrl
+            Name = repo.Name
         };
+        isActiveForEdit = repo.IsActive;
         isEditing = true;
-        editingId = repo.Id;
         showModal = true;
     }
 
     private void CloseModal()
     {
         showModal = false;
-        editingId = null;
+        editingRepo = null;
+        lookupResult = null;
+        lookupError = null;
+    }
+
+    private async Task LookupRepository()
+    {
+        if (string.IsNullOrWhiteSpace(createModel.FullName))
+        {
+            lookupError = "請輸入 Repository Full Name";
+            return;
+        }
+
+        isLookingUp = true;
+        lookupResult = null;
+        lookupError = null;
+
+        try
+        {
+            lookupResult = await Api.LookupRepositoryAsync(createModel.Platform, createModel.FullName);
+            if (lookupResult == null)
+            {
+                lookupError = "找不到此 Repository，請確認名稱是否正確，以及是否已設定該平台的 Access Token。";
+            }
+        }
+        catch (Exception ex)
+        {
+            lookupError = $"查詢失敗: {ex.Message}";
+        }
+        finally
+        {
+            isLookingUp = false;
+        }
     }
 
     private async Task SaveRepository()
@@ -224,19 +295,14 @@ else
         isSaving = true;
         try
         {
-            if (isEditing && editingId.HasValue)
+            if (isEditing && editingRepo != null)
             {
-                await Api.UpdateRepositoryAsync(editingId.Value, new UpdateRepositoryRequest
-                {
-                    Name = formModel.Name,
-                    AccessToken = formModel.AccessToken,
-                    WebhookSecret = formModel.WebhookSecret,
-                    ApiBaseUrl = formModel.ApiBaseUrl
-                });
+                updateModel.IsActive = isActiveForEdit;
+                await Api.UpdateRepositoryAsync(editingRepo.Id, updateModel);
             }
             else
             {
-                await Api.CreateRepositoryAsync(formModel);
+                await Api.CreateRepositoryAsync(createModel);
             }
 
             CloseModal();

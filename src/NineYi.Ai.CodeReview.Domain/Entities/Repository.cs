@@ -1,14 +1,20 @@
 namespace NineYi.Ai.CodeReview.Domain.Entities;
 
 /// <summary>
-/// 存放 Repository 設定（包含各平台的存取資訊）
+/// 存放 Repository 設定（簡化版，認證資訊由 PlatformSettings 提供）
 /// </summary>
 public class Repository
 {
     public Guid Id { get; set; }
 
+    /// <summary>
+    /// Repository 名稱（用於顯示）
+    /// </summary>
     public string Name { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Repository 完整名稱 (owner/repo)
+    /// </summary>
     public string FullName { get; set; } = string.Empty;
 
     /// <summary>
@@ -17,24 +23,9 @@ public class Repository
     public GitPlatformType Platform { get; set; }
 
     /// <summary>
-    /// 平台上的 Repository ID
+    /// 平台上的 Repository ID（由 API 自動取得）
     /// </summary>
     public string PlatformRepositoryId { get; set; } = string.Empty;
-
-    /// <summary>
-    /// API 存取 Token（加密存儲）
-    /// </summary>
-    public string AccessToken { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Webhook Secret（用於驗證 webhook 請求）
-    /// </summary>
-    public string? WebhookSecret { get; set; }
-
-    /// <summary>
-    /// 平台 API 基礎 URL（GitLab 自架站用）
-    /// </summary>
-    public string? ApiBaseUrl { get; set; }
 
     public bool IsActive { get; set; } = true;
 
