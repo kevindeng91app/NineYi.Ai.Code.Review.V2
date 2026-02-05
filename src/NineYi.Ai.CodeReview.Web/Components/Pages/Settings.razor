@@ -1,0 +1,226 @@
+@page "/settings"
+@using NineYi.Ai.CodeReview.Web.Models
+@using NineYi.Ai.CodeReview.Web.Services
+@inject IApiClient Api
+@rendermode InteractiveServer
+
+<PageTitle>平台設定 - Code Review</PageTitle>
+
+<div class="mb-4">
+    <h4 class="mb-0">
+        <i class="bi bi-gear me-2"></i>平台設定
+    </h4>
+    <p class="text-muted mt-2">設定各 Git 平台的 Access Token 和其他認證資訊</p>
+</div>
+
+<div class="row">
+    @foreach (var platform in platforms)
+    {
+        var settings = platformSettings.FirstOrDefault(s => s.Platform == platform.Id);
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex align-items-center">
+                    <i class="bi @platform.Icon me-2 fs-4"></i>
+                    <span class="fw-bold">@platform.Name</span>
+                    @if (settings?.HasAccessToken == true)
+                    {
+                        <span class="badge bg-success ms-auto">已設定</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary ms-auto">未設定</span>
+                    }
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Access Token *</label>
+                        <div class="input-group">
+                            <input type="@(showTokens[platform.Id] ? "text" : "password")"
+                                   class="form-control"
+                                   @bind="formData[platform.Id].AccessToken"
+                                   placeholder="@platform.TokenPlaceholder" />
+                            <button class="btn btn-outline-secondary" type="button"
+                                    @onclick="() => showTokens[platform.Id] = !showTokens[platform.Id]">
+                                <i class="bi @(showTokens[platform.Id] ? "bi-eye-slash" : "bi-eye")"></i>
+                            </button>
+                        </div>
+                        <small class="text-muted">@platform.TokenHint</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Webhook Secret</label>
+                        <input type="password" class="form-control"
+                               @bind="formData[platform.Id].WebhookSecret"
+                               placeholder="webhook secret (可選)" />
+                        <small class="text-muted">用於驗證 Webhook 請求來源</small>
+                    </div>
+                    @if (platform.Id != 1) @* GitHub 不需要自訂 API URL *@
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">API Base URL</label>
+                            <input type="text" class="form-control"
+                                   @bind="formData[platform.Id].ApiBaseUrl"
+                                   placeholder="@platform.DefaultApiUrl" />
+                            <small class="text-muted">自架服務時才需要設定</small>
+                        </div>
+                    }
+                </div>
+                <div class="card-footer">
+                    <button class="btn btn-primary w-100" @onclick="() => SavePlatformSettings(platform.Id)"
+                            disabled="@savingPlatforms[platform.Id]">
+                        @if (savingPlatforms[platform.Id])
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        儲存設定
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div class="toast show bg-success text-white">
+            <div class="toast-body">
+                <i class="bi bi-check-circle me-2"></i>@successMessage
+                <button type="button" class="btn-close btn-close-white ms-2" @onclick="() => successMessage = null"></button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div class="toast show bg-danger text-white">
+            <div class="toast-body">
+                <i class="bi bi-exclamation-circle me-2"></i>@errorMessage
+                <button type="button" class="btn-close btn-close-white ms-2" @onclick="() => errorMessage = null"></button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<PlatformSettingsDto> platformSettings = new();
+    private Dictionary<int, UpsertPlatformSettingsRequest> formData = new();
+    private Dictionary<int, bool> savingPlatforms = new();
+    private Dictionary<int, bool> showTokens = new();
+    private string? errorMessage;
+    private string? successMessage;
+
+    private readonly List<PlatformInfo> platforms = new()
+    {
+        new PlatformInfo
+        {
+            Id = 1,
+            Name = "GitHub",
+            Icon = "bi-github",
+            TokenPlaceholder = "ghp_xxxxxxxxxxxx",
+            TokenHint = "Personal Access Token 或 GitHub App Token",
+            DefaultApiUrl = "https://api.github.com"
+        },
+        new PlatformInfo
+        {
+            Id = 2,
+            Name = "GitLab",
+            Icon = "bi-gitlab",
+            TokenPlaceholder = "glpat-xxxxxxxxxxxx",
+            TokenHint = "Personal Access Token",
+            DefaultApiUrl = "https://gitlab.com/api/v4"
+        },
+        new PlatformInfo
+        {
+            Id = 3,
+            Name = "Bitbucket",
+            Icon = "bi-bucket",
+            TokenPlaceholder = "App Password",
+            TokenHint = "App Password (需要 Repository 讀取權限)",
+            DefaultApiUrl = "https://api.bitbucket.org/2.0"
+        }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Initialize form data
+        foreach (var platform in platforms)
+        {
+            formData[platform.Id] = new UpsertPlatformSettingsRequest();
+            savingPlatforms[platform.Id] = false;
+            showTokens[platform.Id] = false;
+        }
+
+        await LoadSettings();
+    }
+
+    private async Task LoadSettings()
+    {
+        try
+        {
+            platformSettings = await Api.GetPlatformSettingsAsync();
+
+            // 填入現有設定（Token 不會回傳，但其他欄位會）
+            foreach (var settings in platformSettings)
+            {
+                if (formData.ContainsKey(settings.Platform))
+                {
+                    formData[settings.Platform].ApiBaseUrl = settings.ApiBaseUrl;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"載入設定失敗: {ex.Message}";
+        }
+    }
+
+    private async Task SavePlatformSettings(int platformId)
+    {
+        if (string.IsNullOrWhiteSpace(formData[platformId].AccessToken))
+        {
+            errorMessage = "請輸入 Access Token";
+            return;
+        }
+
+        savingPlatforms[platformId] = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            await Api.UpsertPlatformSettingsAsync(platformId, formData[platformId]);
+            successMessage = $"{platforms.First(p => p.Id == platformId).Name} 設定已儲存";
+            await LoadSettings();
+
+            // 清空 token 欄位（安全考量）
+            formData[platformId].AccessToken = string.Empty;
+            formData[platformId].WebhookSecret = null;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"儲存失敗: {ex.Message}";
+        }
+        finally
+        {
+            savingPlatforms[platformId] = false;
+        }
+    }
+
+    private class PlatformInfo
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Icon { get; set; } = string.Empty;
+        public string TokenPlaceholder { get; set; } = string.Empty;
+        public string TokenHint { get; set; } = string.Empty;
+        public string DefaultApiUrl { get; set; } = string.Empty;
+    }
+}
+
+<style>
+    .card-header {
+        background-color: #f8f9fa;
+    }
+</style>

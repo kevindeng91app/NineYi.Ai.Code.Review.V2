@@ -33,6 +33,34 @@ public class GitLabService : IGitPlatformService
         return Uri.EscapeDataString(fullName);
     }
 
+    public async Task<RepositoryInfo?> GetRepositoryInfoAsync(string repositoryFullName, string accessToken, string? apiBaseUrl = null, CancellationToken cancellationToken = default)
+    {
+        SetupHeaders(accessToken);
+        var baseUrl = apiBaseUrl ?? DefaultApiBaseUrl;
+        var projectPath = EncodeProjectPath(repositoryFullName);
+        var url = $"{baseUrl}/projects/{projectPath}";
+
+        var response = await _httpClient.GetAsync(url, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Failed to get repository info for {RepositoryFullName}: {StatusCode}", repositoryFullName, response.StatusCode);
+            return null;
+        }
+
+        var content = await response.Content.ReadAsStringAsync(cancellationToken);
+        var project = JsonSerializer.Deserialize<GitLabProject>(content, JsonOptions);
+
+        return new RepositoryInfo
+        {
+            Id = project!.Id.ToString(),
+            Name = project.Name ?? string.Empty,
+            FullName = project.PathWithNamespace ?? repositoryFullName,
+            Description = project.Description,
+            DefaultBranch = project.DefaultBranch,
+            Private = project.Visibility != "public"
+        };
+    }
+
     public async Task<PullRequestInfo> GetPullRequestAsync(string repositoryFullName, int pullRequestNumber, string accessToken, string? apiBaseUrl = null, CancellationToken cancellationToken = default)
     {
         SetupHeaders(accessToken);
@@ -213,5 +241,15 @@ public class GitLabService : IGitPlatformService
         public bool NewFile { get; set; }
         public bool DeletedFile { get; set; }
         public bool RenamedFile { get; set; }
+    }
+
+    private class GitLabProject
+    {
+        public long Id { get; set; }
+        public string? Name { get; set; }
+        public string? PathWithNamespace { get; set; }
+        public string? Description { get; set; }
+        public string? DefaultBranch { get; set; }
+        public string? Visibility { get; set; }
     }
 }

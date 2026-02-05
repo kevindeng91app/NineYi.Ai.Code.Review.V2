@@ -28,6 +28,33 @@ public class BitbucketService : IGitPlatformService
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
     }
 
+    public async Task<RepositoryInfo?> GetRepositoryInfoAsync(string repositoryFullName, string accessToken, string? apiBaseUrl = null, CancellationToken cancellationToken = default)
+    {
+        SetupHeaders(accessToken);
+        var baseUrl = apiBaseUrl ?? DefaultApiBaseUrl;
+        var url = $"{baseUrl}/repositories/{repositoryFullName}";
+
+        var response = await _httpClient.GetAsync(url, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Failed to get repository info for {RepositoryFullName}: {StatusCode}", repositoryFullName, response.StatusCode);
+            return null;
+        }
+
+        var content = await response.Content.ReadAsStringAsync(cancellationToken);
+        var repo = JsonSerializer.Deserialize<BitbucketRepository>(content, JsonOptions);
+
+        return new RepositoryInfo
+        {
+            Id = repo!.Uuid ?? string.Empty,
+            Name = repo.Name ?? string.Empty,
+            FullName = repo.FullName ?? repositoryFullName,
+            Description = repo.Description,
+            DefaultBranch = repo.Mainbranch?.Name,
+            Private = repo.IsPrivate
+        };
+    }
+
     public async Task<PullRequestInfo> GetPullRequestAsync(string repositoryFullName, int pullRequestNumber, string accessToken, string? apiBaseUrl = null, CancellationToken cancellationToken = default)
     {
         SetupHeaders(accessToken);
@@ -273,5 +300,20 @@ public class BitbucketService : IGitPlatformService
     {
         public List<T>? Values { get; set; }
         public string? Next { get; set; }
+    }
+
+    private class BitbucketRepository
+    {
+        public string? Uuid { get; set; }
+        public string? Name { get; set; }
+        public string? FullName { get; set; }
+        public string? Description { get; set; }
+        public bool IsPrivate { get; set; }
+        public BitbucketMainbranch? Mainbranch { get; set; }
+    }
+
+    private class BitbucketMainbranch
+    {
+        public string? Name { get; set; }
     }
 }

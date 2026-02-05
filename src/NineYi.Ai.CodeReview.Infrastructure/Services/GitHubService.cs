@@ -32,6 +32,33 @@ public class GitHubService : IGitPlatformService
         _httpClient.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
     }
 
+    public async Task<RepositoryInfo?> GetRepositoryInfoAsync(string repositoryFullName, string accessToken, string? apiBaseUrl = null, CancellationToken cancellationToken = default)
+    {
+        SetupHeaders(accessToken, apiBaseUrl);
+        var baseUrl = apiBaseUrl ?? DefaultApiBaseUrl;
+        var url = $"{baseUrl}/repos/{repositoryFullName}";
+
+        var response = await _httpClient.GetAsync(url, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Failed to get repository info for {RepositoryFullName}: {StatusCode}", repositoryFullName, response.StatusCode);
+            return null;
+        }
+
+        var content = await response.Content.ReadAsStringAsync(cancellationToken);
+        var repo = JsonSerializer.Deserialize<GitHubRepository>(content, JsonOptions);
+
+        return new RepositoryInfo
+        {
+            Id = repo!.Id.ToString(),
+            Name = repo.Name ?? string.Empty,
+            FullName = repo.FullName ?? repositoryFullName,
+            Description = repo.Description,
+            DefaultBranch = repo.DefaultBranch,
+            Private = repo.Private
+        };
+    }
+
     public async Task<PullRequestInfo> GetPullRequestAsync(string repositoryFullName, int pullRequestNumber, string accessToken, string? apiBaseUrl = null, CancellationToken cancellationToken = default)
     {
         SetupHeaders(accessToken, apiBaseUrl);
@@ -222,5 +249,17 @@ public class GitHubService : IGitPlatformService
         public string? Patch { get; set; }
         [JsonPropertyName("blob_url")]
         public string? BlobUrl { get; set; }
+    }
+
+    private class GitHubRepository
+    {
+        public long Id { get; set; }
+        public string? Name { get; set; }
+        [JsonPropertyName("full_name")]
+        public string? FullName { get; set; }
+        public string? Description { get; set; }
+        [JsonPropertyName("default_branch")]
+        public string? DefaultBranch { get; set; }
+        public bool Private { get; set; }
     }
 }

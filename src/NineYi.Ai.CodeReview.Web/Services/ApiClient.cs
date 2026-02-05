@@ -5,12 +5,18 @@ namespace NineYi.Ai.CodeReview.Web.Services;
 
 public interface IApiClient
 {
+    // Platform Settings
+    Task<List<PlatformSettingsDto>> GetPlatformSettingsAsync();
+    Task<PlatformSettingsDto?> GetPlatformSettingsByPlatformAsync(int platform);
+    Task<PlatformSettingsDto> UpsertPlatformSettingsAsync(int platform, UpsertPlatformSettingsRequest request);
+
     // Repositories
     Task<List<RepositoryDto>> GetRepositoriesAsync();
     Task<RepositoryDto?> GetRepositoryAsync(Guid id);
     Task<RepositoryDto> CreateRepositoryAsync(CreateRepositoryRequest request);
     Task<RepositoryDto> UpdateRepositoryAsync(Guid id, UpdateRepositoryRequest request);
     Task DeleteRepositoryAsync(Guid id);
+    Task<RepositoryLookupResult?> LookupRepositoryAsync(int platform, string fullName);
 
     // Rules
     Task<List<RuleDto>> GetRulesAsync();
@@ -43,6 +49,31 @@ public class ApiClient : IApiClient
         _httpClient = httpClient;
     }
 
+    // Platform Settings
+    public async Task<List<PlatformSettingsDto>> GetPlatformSettingsAsync()
+    {
+        return await _httpClient.GetFromJsonAsync<List<PlatformSettingsDto>>("api/platform-settings") ?? new();
+    }
+
+    public async Task<PlatformSettingsDto?> GetPlatformSettingsByPlatformAsync(int platform)
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<PlatformSettingsDto>($"api/platform-settings/{platform}");
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+    }
+
+    public async Task<PlatformSettingsDto> UpsertPlatformSettingsAsync(int platform, UpsertPlatformSettingsRequest request)
+    {
+        var response = await _httpClient.PutAsJsonAsync($"api/platform-settings/{platform}", request);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<PlatformSettingsDto>() ?? throw new Exception("Failed to save platform settings");
+    }
+
     // Repositories
     public async Task<List<RepositoryDto>> GetRepositoriesAsync()
     {
@@ -72,6 +103,19 @@ public class ApiClient : IApiClient
     {
         var response = await _httpClient.DeleteAsync($"api/repositories/{id}");
         response.EnsureSuccessStatusCode();
+    }
+
+    public async Task<RepositoryLookupResult?> LookupRepositoryAsync(int platform, string fullName)
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<RepositoryLookupResult>(
+                $"api/repositories/lookup?platform={platform}&fullName={Uri.EscapeDataString(fullName)}");
+        }
+        catch (HttpRequestException)
+        {
+            return null;
+        }
     }
 
     // Rules
