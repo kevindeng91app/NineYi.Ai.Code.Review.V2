@@ -17,6 +17,7 @@ public class CodeReviewService : ICodeReviewService
     private readonly IHotKeywordRepository _hotKeywordRepository;
     private readonly IRuleStatisticsRepository _ruleStatisticsRepository;
     private readonly IDifyUsageLogRepository _difyUsageLogRepository;
+    private readonly IPlatformSettingsRepository _platformSettingsRepository;
     private readonly IGitPlatformServiceFactory _gitPlatformServiceFactory;
     private readonly IDifyService _difyService;
     private readonly DifySettings _difySettings;
@@ -29,6 +30,7 @@ public class CodeReviewService : ICodeReviewService
         IHotKeywordRepository hotKeywordRepository,
         IRuleStatisticsRepository ruleStatisticsRepository,
         IDifyUsageLogRepository difyUsageLogRepository,
+        IPlatformSettingsRepository platformSettingsRepository,
         IGitPlatformServiceFactory gitPlatformServiceFactory,
         IDifyService difyService,
         IOptions<DifySettings> difySettings,
@@ -40,6 +42,7 @@ public class CodeReviewService : ICodeReviewService
         _hotKeywordRepository = hotKeywordRepository;
         _ruleStatisticsRepository = ruleStatisticsRepository;
         _difyUsageLogRepository = difyUsageLogRepository;
+        _platformSettingsRepository = platformSettingsRepository;
         _gitPlatformServiceFactory = gitPlatformServiceFactory;
         _difyService = difyService;
         _difySettings = difySettings.Value;
@@ -91,25 +94,32 @@ public class CodeReviewService : ICodeReviewService
 
         try
         {
-            // 3. 取得 Git 平台服務
+            // 3. 取得平台設定
+            var platformSettings = await _platformSettingsRepository.GetByPlatformAsync(payload.Platform, cancellationToken);
+            if (platformSettings == null || string.IsNullOrEmpty(platformSettings.AccessToken))
+            {
+                throw new InvalidOperationException($"Platform settings not configured for {payload.Platform}");
+            }
+
+            // 4. 取得 Git 平台服務
             var gitService = _gitPlatformServiceFactory.GetService(payload.Platform);
 
-            // 4. 取得 PR 的檔案清單
+            // 5. 取得 PR 的檔案清單
             var files = await gitService.GetPullRequestFilesAsync(
                 repository.FullName, payload.PullRequest.Number,
-                repository.AccessToken, repository.ApiBaseUrl, cancellationToken);
+                platformSettings.AccessToken, platformSettings.ApiBaseUrl, cancellationToken);
 
-            // 5. 取得 Repository 對應的 Rules
+            // 6. 取得 Repository 對應的 Rules
             var rules = (await _ruleRepository.GetByRepositoryIdAsync(repository.Id, cancellationToken)).ToList();
             if (!rules.Any())
             {
                 _logger.LogWarning("No rules configured for repository {Repository}", repository.FullName);
             }
 
-            // 6. 取得 Hot Keywords
+            // 7. 取得 Hot Keywords
             var hotKeywords = (await _hotKeywordRepository.GetAllActiveAsync(cancellationToken)).ToList();
 
-            // 7. 處理每個檔案
+            // 8. 處理每個檔案
             var result = new ReviewResultDto
             {
                 ReviewLogId = reviewLog.Id,
@@ -140,22 +150,22 @@ public class CodeReviewService : ICodeReviewService
                         await gitService.PostReviewCommentAsync(
                             repository.FullName, payload.PullRequest.Number,
                             file.FileName, comment.LineNumber ?? 1,
-                            FormatComment(comment), repository.AccessToken,
-                            repository.ApiBaseUrl, cancellationToken);
+                            FormatComment(comment), platformSettings.AccessToken,
+                            platformSettings.ApiBaseUrl, cancellationToken);
                     }
                 }
             }
 
-            // 8. 如果所有檔案都沒問題，在 PR 發表整體評論
+            // 9. 如果所有檔案都沒問題，在 PR 發表整體評論
             if (result.CommentsGenerated == 0)
             {
                 await gitService.PostPullRequestCommentAsync(
                     repository.FullName, payload.PullRequest.Number,
                     "✅ Code review completed. No issues found. Great job!",
-                    repository.AccessToken, repository.ApiBaseUrl, cancellationToken);
+                    platformSettings.AccessToken, platformSettings.ApiBaseUrl, cancellationToken);
             }
 
-            // 9. 更新 Review Log
+            // 10. 更新 Review Log
             reviewLog.Status = ReviewStatus.Completed;
             reviewLog.CompletedAt = DateTime.UtcNow;
             reviewLog.FilesProcessed = result.FilesProcessed;
