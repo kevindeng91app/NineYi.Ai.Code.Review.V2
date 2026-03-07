@@ -2,7 +2,9 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NineYi.Ai.CodeReview.Application.Commands;
 using NineYi.Ai.CodeReview.Application.DTOs;
+using NineYi.Ai.CodeReview.Application.Options;
 using NineYi.Ai.CodeReview.Domain.Entities;
 using NineYi.Ai.CodeReview.Domain.Interfaces;
 using NineYi.Ai.CodeReview.Domain.Settings;
@@ -21,6 +23,7 @@ public class CodeReviewService : ICodeReviewService
     private readonly IGitPlatformServiceFactory _gitPlatformServiceFactory;
     private readonly IDifyService _difyService;
     private readonly DifySettings _difySettings;
+    private readonly PullRequestIgnoreOptions _ignoreOptions;
     private readonly ILogger<CodeReviewService> _logger;
 
     public CodeReviewService(
@@ -34,6 +37,7 @@ public class CodeReviewService : ICodeReviewService
         IGitPlatformServiceFactory gitPlatformServiceFactory,
         IDifyService difyService,
         IOptions<DifySettings> difySettings,
+        IOptions<PullRequestIgnoreOptions> ignoreOptions,
         ILogger<CodeReviewService> logger)
     {
         _repositoryRepository = repositoryRepository;
@@ -46,7 +50,48 @@ public class CodeReviewService : ICodeReviewService
         _gitPlatformServiceFactory = gitPlatformServiceFactory;
         _difyService = difyService;
         _difySettings = difySettings.Value;
+        _ignoreOptions = ignoreOptions.Value;
         _logger = logger;
+    }
+
+    public async Task<ReviewResultDto> StartAsync(StartCodeReviewCommand command, CancellationToken cancellationToken = default)
+    {
+        // PR Title Ignore Gate：命中 keyword 直接 log + 回傳，不寫 DB、不呼叫 Dify
+        var matchedKeyword = _ignoreOptions.TitleKeywords
+            .FirstOrDefault(k => command.Title.Contains(k, StringComparison.OrdinalIgnoreCase));
+
+        if (matchedKeyword is not null)
+        {
+            _logger.LogInformation(
+                "PR #{Number} in {Repo} skipped — title matched ignore keyword '{Keyword}'. Title: {Title}",
+                command.PullRequestNumber, command.RepoFullName, matchedKeyword, command.Title);
+
+            return new ReviewResultDto
+            {
+                IsSuccess = true,
+                ErrorMessage = $"Skipped: PR title matched ignore keyword '{matchedKeyword}'"
+            };
+        }
+
+        // Step 2：橋接到現有 ProcessPullRequestAsync（Phase 2 移除）
+        var payload = new WebhookPayload
+        {
+            Platform = command.ProviderType,
+            Repository = new WebhookRepository
+            {
+                FullName = command.RepoFullName
+            },
+            PullRequest = new WebhookPullRequest
+            {
+                Number = command.PullRequestNumber,
+                Title = command.Title,
+                SourceBranch = command.PullRequestRef.SourceBranch,
+                TargetBranch = command.PullRequestRef.TargetBranch,
+                HeadSha = command.PullRequestRef.HeadCommitSha
+            }
+        };
+
+        return await ProcessPullRequestAsync(payload, cancellationToken);
     }
 
     public async Task<ReviewResultDto> ProcessPullRequestAsync(WebhookPayload payload, CancellationToken cancellationToken = default)

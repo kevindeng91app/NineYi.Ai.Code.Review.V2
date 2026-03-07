@@ -7,7 +7,6 @@ using NineYi.Ai.CodeReview.Domain.Settings;
 using NineYi.Ai.CodeReview.Infrastructure.Data;
 using NineYi.Ai.CodeReview.Infrastructure.Repositories;
 using NineYi.Ai.CodeReview.Infrastructure.Services;
-using NineYi.Ai.CodeReview.Infrastructure.Services.WebhookParsers;
 using Polly;
 using Polly.Extensions.Http;
 
@@ -61,11 +60,6 @@ public static class DependencyInjection
 
         // Dify Service
         services.AddScoped<IDifyService, DifyService>();
-
-        // Webhook Parsers
-        services.AddScoped<IWebhookParserService, GitHubWebhookParser>();
-        services.AddScoped<IWebhookParserService, GitLabWebhookParser>();
-        services.AddScoped<IWebhookParserService, BitbucketWebhookParser>();
 
         return services;
     }
