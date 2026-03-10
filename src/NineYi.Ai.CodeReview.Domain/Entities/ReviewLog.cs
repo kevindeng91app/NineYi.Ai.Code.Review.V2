@@ -60,7 +60,7 @@ public class ReviewLog
     public decimal EstimatedCost { get; set; }
 
     /// <summary>
-    /// 錯誤訊息（如果有的話）
+    /// 錯誤訊息（Status = Failed 時填入）
     /// </summary>
     public string? ErrorMessage { get; set; }
 
@@ -80,5 +80,6 @@ public enum ReviewStatus
     InProgress = 1,
     Completed = 2,
     Failed = 3,
-    PartiallyCompleted = 4
+    PartiallyCompleted = 4,
+    Skipped = 5     // PR title 命中 ignore keyword，主動跳過，不執行 review
 }

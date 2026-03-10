@@ -1,0 +1,6 @@
+- $.project.id = 
+- $.object_attributes.iid = 
+- $.project.name
+- $.object_attributes.target_branch
+- $.object_attributes.last_commit.id
+- $.object_attributes.action

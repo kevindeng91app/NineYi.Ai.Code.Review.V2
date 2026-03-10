@@ -29,7 +29,7 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 // Add Application and Infrastructure layers
-builder.Services.AddApplication();
+builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
 
 // Health checks
@@ -57,6 +57,13 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseSerilogRequestLogging();
+
+// 啟用 request body buffering，讓 GitHub signature 驗證可重複讀取 body
+app.Use(async (context, next) =>
+{
+    context.Request.EnableBuffering();
+    await next();
+});
 
 app.UseHttpsRedirection();
 app.UseCors();

@@ -44,7 +44,8 @@ public class DifyReviewResult
 
 public class CodeReviewComment
 {
-    public int? LineNumber { get; set; }
+    public int? StartLine { get; set; }
+    public int? EndLine { get; set; }
     public string Comment { get; set; } = string.Empty;
     public string Severity { get; set; } = "info"; // info, warning, error
     public string? Category { get; set; }

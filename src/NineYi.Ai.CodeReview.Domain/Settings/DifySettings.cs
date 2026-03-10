@@ -10,7 +10,7 @@ public class DifySettings
     /// <summary>
     /// Dify API Endpoint（預設）
     /// </summary>
-    public string ApiEndpoint { get; set; } = "https://api.dify.ai/v1/workflows/run";
+    public string ApiEndpoint { get; set; } = "https://dify.91app.biz/v1/chat-messages";
 
     /// <summary>
     /// 每 1000 tokens 的費用（USD）
