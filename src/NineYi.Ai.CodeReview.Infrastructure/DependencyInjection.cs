@@ -1,14 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using NineYi.Ai.CodeReview.Application.Abstractions;
 using NineYi.Ai.CodeReview.Application.Services;
 using NineYi.Ai.CodeReview.Domain.Interfaces;
 using NineYi.Ai.CodeReview.Domain.Settings;
+using NineYi.Ai.CodeReview.Infrastructure.Clients;
 using NineYi.Ai.CodeReview.Infrastructure.Data;
+using NineYi.Ai.CodeReview.Infrastructure.Http;
 using NineYi.Ai.CodeReview.Infrastructure.Repositories;
 using NineYi.Ai.CodeReview.Infrastructure.Services;
-using Polly;
-using Polly.Extensions.Http;
 
 namespace NineYi.Ai.CodeReview.Infrastructure;
 
@@ -36,9 +37,7 @@ public static class DependencyInjection
         services.AddScoped<IPlatformSettingsRepository, PlatformSettingsRepository>();
 
         // HTTP Clients with retry policy
-        var retryPolicy = HttpPolicyExtensions
-            .HandleTransientHttpError()
-            .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+        var retryPolicy = HttpPolicies.GetRetryPolicy();
 
         services.AddHttpClient<IGitPlatformService, GitHubService>("GitHub")
             .AddPolicyHandler(retryPolicy);
@@ -47,16 +46,18 @@ public static class DependencyInjection
             .AddPolicyHandler(retryPolicy);
 
         services.AddHttpClient<IGitPlatformService, BitbucketService>("Bitbucket")
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false })
             .AddPolicyHandler(retryPolicy);
 
         services.AddHttpClient<IDifyService, DifyService>("Dify")
             .AddPolicyHandler(retryPolicy);
 
-        // Git Platform Services
-        services.AddScoped<IGitPlatformService, GitHubService>();
-        services.AddScoped<IGitPlatformService, GitLabService>();
-        services.AddScoped<IGitPlatformService, BitbucketService>();
-        services.AddScoped<IGitPlatformServiceFactory, GitPlatformServiceFactory>();
+        // Phase 2：新 IRepoHostClient 三個實作 + Factory
+        // Bitbucket 的 named client 已在上方設定 AllowAutoRedirect = false，此處直接注入即可
+        services.AddScoped<GitHubClient>();
+        services.AddScoped<GitLabClient>();
+        services.AddScoped<BitbucketClient>();
+        services.AddScoped<IRepoHostClientFactory, RepoHostClientFactory>();
 
         // Dify Service
         services.AddScoped<IDifyService, DifyService>();

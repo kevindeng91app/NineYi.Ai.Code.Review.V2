@@ -134,6 +134,7 @@ public class WebhookController : ControllerBase
             RepoFullName = body.Project?.PathWithNamespace ?? string.Empty,
             PullRequestNumber = body.ObjectAttributes!.Iid,
             Title = body.ObjectAttributes.Title,
+            PlatformProjectId = body.Project?.Id.ToString(),
             PullRequestRef = new PullRequestRef
             {
                 HeadCommitSha = body.ObjectAttributes.LastCommit?.Id ?? string.Empty,

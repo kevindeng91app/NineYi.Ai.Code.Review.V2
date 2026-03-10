@@ -15,6 +15,9 @@ public static class DependencyInjection
         services.Configure<WebhookSecretsOptions>(
             configuration.GetSection(WebhookSecretsOptions.SectionName));
 
+        services.Configure<FileExcludeOptions>(
+            configuration.GetSection(FileExcludeOptions.SectionName));
+
         services.AddScoped<ICodeReviewService, CodeReviewService>();
         services.AddScoped<IStatisticsService, StatisticsService>();
 

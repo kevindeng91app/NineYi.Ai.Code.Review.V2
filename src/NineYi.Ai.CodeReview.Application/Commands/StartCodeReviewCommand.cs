@@ -27,4 +27,11 @@ public class StartCodeReviewCommand
 
     /// <summary>指向 PR 資料來源的參考資訊（branch、commit sha、diff url）</summary>
     public PullRequestRef PullRequestRef { get; set; } = new();
+
+    /// <summary>
+    /// GitLab 專屬：project 的數字 ID（webhook payload 的 project.id）。
+    /// GitLabClient 組裝 API URL 時使用（/api/v4/projects/{id}/...）。
+    /// GitHub / Bitbucket 不使用此欄位，保持 null。
+    /// </summary>
+    public string? PlatformProjectId { get; set; }
 }

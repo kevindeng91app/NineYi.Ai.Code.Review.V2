@@ -22,7 +22,8 @@ public class FileReviewResultDto
 
 public class CommentDto
 {
-    public int? LineNumber { get; set; }
+    public int? StartLine { get; set; }
+    public int? EndLine { get; set; }
     public string Comment { get; set; } = string.Empty;
     public string Severity { get; set; } = "info";
     public string? Category { get; set; }

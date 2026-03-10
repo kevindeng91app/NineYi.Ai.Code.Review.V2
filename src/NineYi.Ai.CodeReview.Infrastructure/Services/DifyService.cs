@@ -25,11 +25,7 @@ public class DifyService : IDifyService
     public async Task<DifyReviewResult> ReviewCodeAsync(DifyReviewRequest request, CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
-
-        // 使用 request 中的 endpoint，若未設定則使用全域設定
-        var apiEndpoint = !string.IsNullOrWhiteSpace(request.ApiEndpoint)
-            ? request.ApiEndpoint
-            : _settings.ApiEndpoint;
+        var apiEndpoint = _settings.ApiEndpoint;
 
         try
         {
@@ -39,15 +35,11 @@ public class DifyService : IDifyService
 
             var payload = new
             {
-                inputs = new
-                {
-                    file_name = request.FileName,
-                    file_diff = request.FileDiff,
-                    file_content = request.FileContent ?? string.Empty,
-                    additional_context = request.AdditionalContext ?? string.Empty
-                },
-                response_mode = "blocking",
-                user = "code-review-bot"
+                inputs          = new { },
+                query           = BuildQuery(request),
+                response_mode   = "blocking",
+                conversation_id = "",
+                user            = "code-review-bot"
             };
 
             var json = JsonSerializer.Serialize(payload);
@@ -143,7 +135,8 @@ public class DifyService : IDifyService
                 {
                     return jsonComments.Select(c => new CodeReviewComment
                     {
-                        LineNumber = c.Line,
+                        StartLine = c.Line,
+                        EndLine = c.Line,
                         Comment = c.Comment ?? c.Message ?? string.Empty,
                         Severity = c.Severity ?? "info",
                         Category = c.Category,
@@ -202,7 +195,8 @@ public class DifyService : IDifyService
                 var lineMatch = System.Text.RegularExpressions.Regex.Match(trimmedLine, @"[Ll]ine\s*(\d+)");
                 if (lineMatch.Success && int.TryParse(lineMatch.Groups[1].Value, out var lineNum))
                 {
-                    currentComment.LineNumber = lineNum;
+                    currentComment.StartLine = lineNum;
+                    currentComment.EndLine = lineNum;
                 }
             }
             else if (currentComment != null)
@@ -239,6 +233,18 @@ public class DifyService : IDifyService
             lowerText.Contains("should") || lowerText.Contains("建議"))
             return "warning";
         return "info";
+    }
+
+    /// <summary>
+    /// 組成送給 Dify Chat App 的 query 字串。
+    /// 格式與 linter 相同：+++檔名 + 只保留新增行的 diff（移除 - 開頭的刪除行）。
+    /// </summary>
+    private static string BuildQuery(DifyReviewRequest request)
+    {
+        var lines = request.FileDiff.Split('\n');
+        var filteredLines = lines.Where(l => !l.StartsWith("-") || l.StartsWith("---"));
+        var cleanDiff = string.Join('\n', filteredLines);
+        return $"+++{request.FileName}\n```\n{cleanDiff}\n```";
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
